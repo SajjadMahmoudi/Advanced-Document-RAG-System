@@ -1,0 +1,12 @@
+flask
+flask-socketio
+werkzeug 
+docling 
+langchain 
+langchain-community 
+chromadb 
+sentence-transformers 
+requests
+torch 
+kokoro-onnx 
+numpy

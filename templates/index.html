@@ -1,0 +1,1982 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Document RAG System with Real-time TTS</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/11.1.1/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.0/socket.io.min.js"></script>
+    <style>
+        :root {
+            /* Light Theme Variables */
+            --bg-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --bg-color: #ffffff;
+            --text-color: #1a202c;
+            --card-bg: #ffffff;
+            --card-shadow: 0 20px 60px rgba(0,0,0,0.1);
+            --border-color: #e5e7eb;
+            --accent-primary: #6366f1;
+            --accent-secondary: #8b5cf6;
+            --success-color: #10b981;
+            --warning-color: #f59e0b;
+            --error-color: #ef4444;
+            --info-color: #3b82f6;
+            --muted-color: #6b7280;
+            --section-bg: #f9fafb;
+            --toggle-bg: #f3f4f6;
+            --model-active: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);
+            --upload-bg: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            --upload-border: #fbbf24;
+            --extracted-bg: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+            --extracted-border: #60a5fa;
+        }
+
+        [data-theme="dark"] {
+            /* Dark Theme Variables */
+            --bg-gradient: linear-gradient(135deg, #1e3a8a 0%, #4c1d95 100%);
+            --bg-color: #0f172a;
+            --text-color: #f1f5f9;
+            --card-bg: #1e293b;
+            --card-shadow: 0 20px 60px rgba(0,0,0,0.5);
+            --border-color: #334155;
+            --accent-primary: #818cf8;
+            --accent-secondary: #a78bfa;
+            --success-color: #34d399;
+            --warning-color: #fbbf24;
+            --error-color: #f87171;
+            --info-color: #60a5fa;
+            --muted-color: #94a3b8;
+            --section-bg: #1e293b;
+            --toggle-bg: #334155;
+            --model-active: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+            --upload-bg: linear-gradient(135deg, #92400e 0%, #78350f 100%);
+            --upload-border: #f59e0b;
+            --extracted-bg: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+            --extracted-border: #3b82f6;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: var(--bg-gradient);
+            min-height: 100vh;
+            padding: 20px;
+            color: var(--text-color);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+            animation: fadeInDown 0.6s ease;
+        }
+
+        .header h1 {
+            font-size: 3em;
+            font-weight: 700;
+            margin-bottom: 10px;
+            text-shadow: 0 4px 20px rgba(0,0,0,0.2);
+        }
+
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.95;
+        }
+
+        .theme-toggle {
+            position: absolute;
+            top: 30px;
+            right: 30px;
+        }
+
+        .theme-btn {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            padding: 12px 24px;
+            border-radius: 12px;
+            color: white;
+            cursor: pointer;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+
+        .theme-btn:hover {
+            background: rgba(255,255,255,0.3);
+            transform: translateY(-2px);
+        }
+
+        .feature-badges {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+
+        .badge {
+            background: rgba(255,255,255,0.2);
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            backdrop-filter: blur(10px);
+            color: white;
+        }
+
+        .badge.tts {
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            animation: pulse 2s infinite;
+        }
+
+        .badge.extract {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.8; }
+        }
+
+        .content {
+            background: var(--card-bg);
+            border-radius: 24px;
+            padding: 40px;
+            box-shadow: var(--card-shadow);
+            animation: fadeInUp 0.6s ease;
+        }
+
+        .mode-toggle {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: var(--toggle-bg);
+            border-radius: 16px;
+        }
+
+        .mode-btn {
+            flex: 1;
+            max-width: 200px;
+            padding: 15px 25px;
+            border: 2px solid var(--border-color);
+            background: var(--card-bg);
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            text-align: center;
+            color: var(--text-color);
+        }
+
+        .mode-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .mode-btn.active {
+            background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+            color: white;
+            border-color: var(--accent-primary);
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+        }
+
+        .model-selector {
+            margin-bottom: 40px;
+            padding: 30px;
+            background: var(--section-bg);
+            border-radius: 20px;
+            border: 2px solid var(--border-color);
+        }
+
+        .model-selector h3 {
+            color: var(--info-color);
+            margin-bottom: 20px;
+            font-size: 1.3em;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .current-model {
+            background: var(--model-active);
+            color: white;
+            padding: 8px 20px;
+            border-radius: 25px;
+            font-size: 0.75em;
+            font-weight: 600;
+            box-shadow: 0 4px 15px rgba(6, 182, 212, 0.3);
+        }
+
+        .model-buttons {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .model-btn {
+            background: var(--card-bg);
+            border: 2px solid var(--border-color);
+            padding: 20px;
+            border-radius: 16px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.3s ease;
+            font-weight: 500;
+            color: var(--text-color);
+        }
+
+        .model-btn:hover {
+            border-color: var(--accent-primary);
+            transform: translateY(-4px);
+            box-shadow: 0 10px 25px rgba(99, 102, 241, 0.2);
+        }
+
+        .model-btn.active {
+            background: var(--model-active);
+            color: white;
+            border-color: var(--accent-primary);
+            box-shadow: 0 8px 20px rgba(99, 102, 241, 0.4);
+        }
+
+        .upload-section {
+            margin-bottom: 40px;
+            padding: 40px;
+            background: var(--upload-bg);
+            border-radius: 20px;
+            border: 2px dashed var(--upload-border);
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .upload-section h2 {
+            color: var(--warning-color);
+            margin-bottom: 15px;
+            font-size: 1.5em;
+        }
+
+        .supported-formats {
+            margin: 15px 0;
+            padding: 15px;
+            background: rgba(255,255,255,0.5);
+            border-radius: 12px;
+            font-size: 0.9em;
+            color: var(--warning-color);
+            backdrop-filter: blur(10px);
+        }
+
+        .file-input-wrapper {
+            position: relative;
+            margin-bottom: 20px;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .upload-btn {
+            background: linear-gradient(135deg, var(--warning-color) 0%, #d97706 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 12px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3);
+        }
+
+        .upload-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(245, 158, 11, 0.4);
+        }
+
+        .filename-display {
+            margin-top: 20px;
+            color: var(--warning-color);
+            font-weight: 600;
+            font-size: 1.1em;
+        }
+
+        .url-section {
+            margin: 30px 0;
+            padding: 20px;
+            background: var(--section-bg);
+            border-radius: 16px;
+            border: 2px solid var(--border-color);
+        }
+
+        .url-section h3 {
+            color: var(--info-color);
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        #urlInput {
+            flex: 1;
+            padding: 18px 24px;
+            border: 2px solid var(--border-color);
+            border-radius: 12px;
+            font-size: 1em;
+            transition: all 0.3s ease;
+            width: 100%;
+            background: var(--card-bg);
+            color: var(--text-color);
+        }
+
+        #urlInput:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+        }
+
+        #loadUrlBtn {
+            background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+            color: white;
+            border: none;
+            padding: 18px 25px;
+            border-radius: 12px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+        }
+
+        #loadUrlBtn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+        }
+
+        #loadUrlBtn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .extracted-text-section {
+            margin: 40px 0;
+            padding: 30px;
+            background: var(--extracted-bg);
+            border-radius: 20px;
+            border: 2px solid var(--extracted-border);
+            display: none;
+        }
+
+        .extracted-text-section.active {
+            display: block;
+            animation: slideIn 0.3s ease;
+        }
+
+        .extracted-text-section h3 {
+            color: var(--info-color);
+            margin-bottom: 20px;
+            font-size: 1.3em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .extracted-text-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 15px 20px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 12px;
+            border: 2px solid var(--extracted-border);
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .extracted-text-content {
+            max-height: 400px;
+            overflow-y: auto;
+            padding: 20px;
+            background: var(--card-bg);
+            border-radius: 12px;
+            border: 2px solid var(--border-color);
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 0.9em;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-break: break-word;
+            color: var(--text-color);
+        }
+
+        .extracted-text-content::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .extracted-text-content::-webkit-scrollbar-track {
+            background: var(--toggle-bg);
+            border-radius: 4px;
+        }
+
+        .extracted-text-content::-webkit-scrollbar-thumb {
+            background: var(--accent-primary);
+            border-radius: 4px;
+        }
+
+        .extracted-text-content::-webkit-scrollbar-thumb:hover {
+            background: var(--accent-secondary);
+        }
+
+        .show-extract-btn {
+            background: linear-gradient(135deg, var(--success-color) 0%, #059669 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 12px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .show-extract-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+        }
+
+        .show-extract-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .copy-extract-btn {
+            background: linear-gradient(135deg, var(--accent-secondary) 0%, #7c3aed 100%);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 0.95em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+        }
+
+        .copy-extract-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(139, 92, 246, 0.4);
+        }
+
+        .close-extract-btn {
+            background: linear-gradient(135deg, var(--error-color) 0%, #dc2626 100%);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 0.95em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+        }
+
+        .close-extract-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(239, 68, 68, 0.4);
+        }
+
+        .qa-section {
+            opacity: 0;
+            max-height: 0;
+            overflow: hidden;
+            transition: all 0.5s ease;
+        }
+
+        .qa-section.active {
+            opacity: 1;
+            max-height: 5000px;
+        }
+
+        .qa-section h2 {
+            color: var(--accent-primary);
+            margin-bottom: 25px;
+            font-size: 1.5em;
+        }
+
+        .question-input-wrapper {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        #questionInput {
+            flex: 1;
+            padding: 18px 24px;
+            border: 2px solid var(--border-color);
+            border-radius: 12px;
+            font-size: 1em;
+            transition: all 0.3s ease;
+            background: var(--card-bg);
+            color: var(--text-color);
+        }
+
+        #questionInput:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+        }
+
+        .ask-btn {
+            background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+            color: white;
+            border: none;
+            padding: 18px 35px;
+            border-radius: 12px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+        }
+
+        .ask-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+        }
+
+        .ask-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .answer-box {
+            padding: 30px;
+            background: var(--section-bg);
+            border-radius: 16px;
+            border: 2px solid var(--border-color);
+            opacity: 0;
+            max-height: 0;
+            overflow: hidden;
+            transition: all 0.5s ease;
+        }
+
+        .answer-box.show {
+            opacity: 1;
+            max-height: 5000px;
+            margin-bottom: 25px;
+        }
+
+        .answer-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .answer-header h3 {
+            color: var(--text-color);
+            font-size: 1.2em;
+        }
+
+        .model-badge {
+            background: var(--model-active);
+            color: white;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+            box-shadow: 0 2px 8px rgba(6, 182, 212, 0.3);
+        }
+
+        .answer-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 15px 20px;
+            background: var(--toggle-bg);
+            border-radius: 12px;
+            border: 2px solid var(--border-color);
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .translate-section {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .translate-section label {
+            font-weight: 600;
+            color: var(--info-color);
+        }
+
+        .language-select {
+            padding: 10px 15px;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 0.95em;
+            background: var(--card-bg);
+            color: var(--text-color);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-width: 150px;
+        }
+
+        .language-select:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+        }
+
+        .translate-btn {
+            background: linear-gradient(135deg, var(--success-color) 0%, #059669 100%);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 0.95em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+
+        .translate-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(16, 185, 129, 0.4);
+        }
+
+        .translate-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .tts-btn {
+            background: linear-gradient(135deg, var(--info-color) 0%, #1d4ed8 100%);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 0.95em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .tts-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
+        }
+
+        .tts-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .tts-btn.playing {
+            background: linear-gradient(135deg, var(--error-color) 0%, #dc2626 100%);
+            animation: pulse-btn 1.5s infinite;
+        }
+
+        .tts-btn.generating {
+            background: linear-gradient(135deg, var(--warning-color) 0%, #d97706 100%);
+        }
+
+        @keyframes pulse-btn {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        .copy-btn {
+            background: linear-gradient(135deg, var(--accent-secondary) 0%, #7c3aed 100%);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 0.95em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+        }
+
+        .copy-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(139, 92, 246, 0.4);
+        }
+
+        .answer-text {
+            color: var(--text-color);
+            line-height: 1.8;
+            font-size: 1.05em;
+            margin-bottom: 20px;
+            unicode-bidi: plaintext;
+            text-align: start;
+            direction: ltr;
+        }
+
+        .answer-text.markdown {
+            line-height: 1.6;
+            unicode-bidi: plaintext;
+            text-align: start;
+        }
+
+        .answer-text.markdown h1,
+        .answer-text.markdown h2,
+        .answer-text.markdown h3,
+        .answer-text.markdown h4 {
+            margin-top: 20px;
+            margin-bottom: 10px;
+            color: var(--text-color);
+            unicode-bidi: plaintext;
+        }
+
+        .answer-text.markdown h1 { 
+            font-size: 2em; 
+            border-bottom: 2px solid var(--border-color); 
+            padding-bottom: 10px; 
+            unicode-bidi: plaintext;
+        }
+        .answer-text.markdown h2 { 
+            font-size: 1.5em; 
+            unicode-bidi: plaintext;
+        }
+        .answer-text.markdown h3 { 
+            font-size: 1.25em; 
+            unicode-bidi: plaintext;
+        }
+        
+        .answer-text.markdown p {
+            margin-bottom: 15px;
+            unicode-bidi: plaintext;
+        }
+
+        .answer-text.markdown ul,
+        .answer-text.markdown ol {
+            margin-left: 25px;
+            margin-bottom: 15px;
+            unicode-bidi: plaintext;
+        }
+
+        .answer-text.markdown li {
+            margin-bottom: 8px;
+            unicode-bidi: plaintext;
+        }
+
+        .answer-text.markdown code {
+            background: var(--toggle-bg);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            color: var(--error-color);
+            unicode-bidi: plaintext;
+        }
+
+        .answer-text.markdown pre {
+            background: #1e293b;
+            padding: 20px;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin-bottom: 15px;
+            unicode-bidi: plaintext;
+        }
+
+        .answer-text.markdown pre code {
+            background: transparent;
+            padding: 0;
+            color: #e2e8f0;
+            font-size: 0.9em;
+            unicode-bidi: plaintext;
+        }
+
+        .answer-text.markdown blockquote {
+            border-left: 4px solid var(--accent-primary);
+            padding-left: 20px;
+            margin: 15px 0;
+            color: var(--muted-color);
+            font-style: italic;
+            unicode-bidi: plaintext;
+        }
+
+        .answer-text.markdown table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+            unicode-bidi: plaintext;
+        }
+
+        .answer-text.markdown th,
+        .answer-text.markdown td {
+            border: 1px solid var(--border-color);
+            padding: 10px;
+            text-align: left;
+            unicode-bidi: plaintext;
+        }
+
+        .answer-text.markdown th {
+            background: var(--section-bg);
+            font-weight: 600;
+        }
+
+        .answer-text.markdown a {
+            color: var(--accent-primary);
+            text-decoration: none;
+            unicode-bidi: plaintext;
+        }
+
+        .answer-text.markdown a:hover {
+            text-decoration: underline;
+        }
+
+        .streaming-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background: var(--accent-primary);
+            border-radius: 50%;
+            margin-left: 8px;
+            animation: pulse-dot 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.3); }
+        }
+
+        .sources {
+            margin-top: 25px;
+            padding-top: 25px;
+            border-top: 2px solid var(--border-color);
+        }
+
+        .sources h4 {
+            color: var(--accent-primary);
+            margin-bottom: 15px;
+            font-size: 1.1em;
+        }
+
+        .source-item {
+            background: var(--card-bg);
+            padding: 12px 18px;
+            margin-bottom: 10px;
+            border-radius: 10px;
+            border-left: 4px solid var(--accent-primary);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            color: var(--text-color);
+        }
+
+        .loader {
+            border: 4px solid var(--border-color);
+            border-top: 4px solid var(--accent-primary);
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 30px auto;
+            display: none;
+        }
+
+        .loader.show {
+            display: block;
+        }
+
+        .status {
+            padding: 15px 25px;
+            border-radius: 12px;
+            margin: 20px 0;
+            font-weight: 500;
+            display: none;
+            animation: slideIn 0.3s ease;
+        }
+
+        .status.success {
+            background: #d1fae5;
+            color: #065f46;
+            border: 2px solid #6ee7b7;
+        }
+
+        .status.error {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 2px solid #fca5a5;
+        }
+
+        .audio-visualizer {
+            margin-top: 20px;
+            padding: 20px;
+            background: var(--toggle-bg);
+            border-radius: 12px;
+            border: 2px solid var(--border-color);
+            display: none;
+        }
+
+        .audio-visualizer.show {
+            display: block;
+            animation: slideIn 0.3s ease;
+        }
+
+        .visualizer-bars {
+            display: flex;
+            justify-content: space-around;
+            align-items: flex-end;
+            height: 60px;
+            gap: 4px;
+            margin-bottom: 15px;
+        }
+
+        .visualizer-bar {
+            flex: 1;
+            background: linear-gradient(to top, var(--info-color), #60a5fa);
+            border-radius: 4px 4px 0 0;
+            transition: height 0.2s ease;
+            min-height: 5px;
+        }
+
+        @keyframes fadeInDown {
+            from { opacity: 0; transform: translateY(-30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(-15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 768px) {
+            .header h1 { font-size: 2em; }
+            .content { padding: 25px; }
+            .model-buttons { grid-template-columns: 1fr; }
+            .question-input-wrapper { flex-direction: column; }
+            .upload-section { padding: 25px; }
+            .answer-actions {
+                flex-direction: column;
+                gap: 15px;
+                align-items: stretch;
+            }
+            .translate-section {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .language-select {
+                min-width: 100%;
+            }
+            .tts-btn, .copy-btn, .translate-btn {
+                width: 100%;
+                justify-content: center;
+            }
+            .theme-toggle {
+                position: relative;
+                top: 0;
+                right: 0;
+                margin-bottom: 20px;
+                display: flex;
+                justify-content: center;
+            }
+            .extracted-text-actions {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .show-extract-btn, .copy-extract-btn, .close-extract-btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="theme-toggle">
+            <button class="theme-btn" id="themeToggle">
+                <span id="themeIcon">🌙</span>
+                <span id="themeText">Dark Mode</span>
+            </button>
+        </div>
+
+        <div class="header">
+            <h1>📚 Advanced Document RAG System</h1>
+            <p>Upload any document and ask questions with AI-powered responses</p>
+            <div class="feature-badges">
+                <span class="badge">📄 Multi-format Support</span>
+                <span class="badge">🌍 URL Loading</span>
+                <span class="badge">🌐 Translation</span>
+                <span class="badge">✨ Markdown Rendering</span>
+                <span class="badge">⚡ Real-time Streaming</span>
+                <span class="badge tts">🔊 Real-time TTS</span>
+                <span class="badge extract">📋 Extract & Copy Text</span>
+            </div>
+        </div>
+
+        <div class="content">
+            <!-- Response Mode Toggle - Only Standard and Streaming -->
+            <div class="mode-toggle">
+                <button class="mode-btn active" data-mode="standard" onclick="setMode('standard')">
+                    📝 Standard Mode
+                </button>
+                <button class="mode-btn" data-mode="stream" onclick="setMode('stream')">
+                    ⚡ Streaming Mode
+                </button>
+            </div>
+
+            <!-- Model Selector -->
+            <div class="model-selector">
+                <h3>🤖 Select AI Model <span class="current-model" id="currentModelBadge">qwen3:0.6b</span></h3>
+                <div class="model-buttons" id="modelButtons"></div>
+            </div>
+
+            <!-- Upload Section -->
+            <div class="upload-section" id="uploadSection">
+                <h2>📤 Upload Your Document</h2>
+                <div class="supported-formats">
+                    <strong>Supported formats:</strong> PDF, DOCX, PPTX, XLSX, TXT, MD, HTML, RTF, ODT, CSV and more
+                </div>
+                
+                <!-- File upload -->
+                <div class="file-input-wrapper">
+                    <input type="file" id="fileInput" accept=".pdf,.docx,.doc,.pptx,.ppt,.xlsx,.xls,.txt,.md,.html,.rtf,.odt,.csv">
+                    <button class="upload-btn" onclick="document.getElementById('fileInput').click()">Choose File</button>
+                </div>
+                
+                <!-- URL input -->
+                <div style="margin: 30px 0; text-align: center;">
+                    <div style="font-weight: 600; color: var(--warning-color); margin-bottom: 10px;">-- OR --</div>
+                    <h3 style="color: var(--warning-color); margin-bottom: 15px;">🌍 Load from URL</h3>
+                    <div class="question-input-wrapper">
+                        <input type="url" id="urlInput" placeholder="Enter document URL (PDF, DOCX, etc.)...">
+                        <button class="upload-btn" id="loadUrlBtn" style="white-space: nowrap;">Load URL</button>
+                    </div>
+                    <p style="margin-top: 10px; color: var(--warning-color); font-size: 0.9em;">
+                        Supports: http://, https:// URLs to PDF, DOCX, TXT, etc.
+                    </p>
+                </div>
+                
+                <div class="filename-display" id="filenameDisplay"></div>
+                <p style="margin-top: 15px; color: var(--warning-color);">or drag and drop your file here</p>
+            </div>
+
+            <!-- Extracted Text Section -->
+            <div class="extracted-text-section" id="extractedTextSection">
+                <h3>📝 Extracted Markdown Text</h3>
+                <div class="extracted-text-actions">
+                    <button class="copy-extract-btn" id="copyExtractBtn">
+                        📋 Copy Text
+                    </button>
+                    <div style="display: flex; gap: 10px;">
+                        <button class="close-extract-btn" id="closeExtractBtn">
+                            ✕ Close
+                        </button>
+                    </div>
+                </div>
+                <div class="extracted-text-content" id="extractedTextContent"></div>
+                <div style="margin-top: 15px; font-size: 0.9em; color: var(--muted-color); text-align: center;">
+                    Character count: <span id="charCount">0</span>
+                </div>
+            </div>
+
+            <div class="loader" id="loader"></div>
+            <div class="status" id="status"></div>
+
+            <!-- Q&A Section -->
+            <div class="qa-section" id="qaSection">
+                <h2>💬 Ask Questions</h2>
+                
+                <!-- Show Extracted Text Button -->
+                <div style="margin-bottom: 25px; text-align: center;">
+                    <button class="show-extract-btn" id="showExtractBtn" disabled>
+                        📋 View Extracted Text
+                    </button>
+                </div>
+                
+                <div class="question-input-wrapper">
+                    <input type="text" id="questionInput" placeholder="Ask a question about your document...">
+                    <button class="ask-btn" id="askBtn">Ask</button>
+                </div>
+
+                <div class="answer-box" id="answerBox">
+                    <div class="answer-header">
+                        <h3>Answer <span class="streaming-indicator" id="streamingIndicator" style="display:none;"></span></h3>
+                        <span class="model-badge" id="answerModelBadge"></span>
+                    </div>
+
+                    <!-- Translation and TTS Actions -->
+                    <div class="answer-actions">
+                        <div class="translate-section">
+                            <label for="languageSelect">🌐 Translate to:</label>
+                            <select class="language-select" id="languageSelect">
+                                <option value="none">No translation</option>
+                                <option value="persian">Persian (فارسی)</option>
+                                <option value="spanish">Spanish (Español)</option>
+                                <option value="french">French (Français)</option>
+                                <option value="chinese">Chinese (中文)</option>
+                                <option value="german">German (Deutsch)</option>
+                                <option value="japanese">Japanese (日本語)</option>
+                                <option value="arabic">Arabic (العربية)</option>
+                                <option value="russian">Russian (Русский)</option>
+                                <option value="portuguese">Portuguese (Português)</option>
+                                <option value="italian">Italian (Italiano)</option>
+                                <option value="korean">Korean (한국어)</option>
+                                <option value="hindi">Hindi (हिन्दी)</option>
+                            </select>
+                            <button class="translate-btn" id="translateBtn" disabled>Translate</button>
+                        </div>
+                        
+                        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                            <label for="ttsLanguageSelect" style="font-weight: 600; color: var(--info-color);">🔊 TTS Language:</label>
+                            <select class="language-select" id="ttsLanguageSelect" style="border-color: var(--info-color);">
+                                <option value="english">🇬🇧 English</option>
+                                <option value="spanish">🇪🇸 Spanish</option>
+                                <option value="french">🇫🇷 French</option>
+                                <option value="chinese">🇨🇳 Chinese</option>
+                                <option value="japanese">🇯🇵 Japanese</option>
+                                <option value="hindi">🇮🇳 Hindi</option>
+                                <option value="italian">🇮🇹 Italian</option>
+                                <option value="portuguese">🇧🇷 Portuguese</option>
+                            </select>
+                            <button class="tts-btn" id="ttsBtn" disabled>
+                                <span class="tts-icon">🔊</span>
+                                <span class="tts-text">Read Aloud</span>
+                            </button>
+                        </div>
+                        
+                        <button class="copy-btn" id="copyBtn">📋 Copy</button>
+                    </div>
+
+                    <div class="answer-text markdown" id="answerText"></div>
+                    
+                    <!-- Audio Visualizer (without progress bar and time display) -->
+                    <div class="audio-visualizer" id="audioVisualizer">
+                        <div class="visualizer-bars" id="visualizerBars">
+                            <!-- Bars will be generated by JS -->
+                        </div>
+                    </div>
+
+                    <div class="sources" id="sourcesSection" style="display:none;">
+                        <h4>📚 Sources</h4>
+                        <div id="sourcesList"></div>
+                    </div>
+                </div>
+
+                <div style="margin-top: 30px;">
+                    <button class="upload-btn" onclick="location.reload()" style="width: 100%;">
+                        🔄 Reset & Upload New Document
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        marked.setOptions({
+            highlight: function(code, lang) {
+                if (lang && hljs.getLanguage(lang)) {
+                    return hljs.highlight(code, { language: lang }).value;
+                }
+                return hljs.highlightAuto(code).value;
+            },
+            breaks: true,
+            gfm: true
+        });
+
+        // State
+        let availableModels = {};
+        let selectedModelId = 'qwen3:0.6b';
+        let currentMode = 'standard';
+        let currentAnswer = '';
+        let extractedText = '';
+        let socket = null;
+        let audioContext = null;
+        let audioQueue = [];
+        let isPlaying = false;
+        let isTTSGenerating = false;
+        let currentSource = null;
+        let animationFrameId = null;
+
+        // DOM Elements
+        const fileInput = document.getElementById('fileInput');
+        const urlInput = document.getElementById('urlInput');
+        const loadUrlBtn = document.getElementById('loadUrlBtn');
+        const uploadSection = document.getElementById('uploadSection');
+        const qaSection = document.getElementById('qaSection');
+        const questionInput = document.getElementById('questionInput');
+        const askBtn = document.getElementById('askBtn');
+        const answerBox = document.getElementById('answerBox');
+        const answerText = document.getElementById('answerText');
+        const streamingIndicator = document.getElementById('streamingIndicator');
+        const loader = document.getElementById('loader');
+        const status = document.getElementById('status');
+        const languageSelect = document.getElementById('languageSelect');
+        const translateBtn = document.getElementById('translateBtn');
+        const ttsLanguageSelect = document.getElementById('ttsLanguageSelect');
+        const ttsBtn = document.getElementById('ttsBtn');
+        const copyBtn = document.getElementById('copyBtn');
+        const audioVisualizer = document.getElementById('audioVisualizer');
+        const themeToggle = document.getElementById('themeToggle');
+        const themeIcon = document.getElementById('themeIcon');
+        const themeText = document.getElementById('themeText');
+        const showExtractBtn = document.getElementById('showExtractBtn');
+        const extractedTextSection = document.getElementById('extractedTextSection');
+        const extractedTextContent = document.getElementById('extractedTextContent');
+        const copyExtractBtn = document.getElementById('copyExtractBtn');
+        const closeExtractBtn = document.getElementById('closeExtractBtn');
+        const charCount = document.getElementById('charCount');
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadModels();
+            setupEventListeners();
+            initSocketIO();
+            initVisualizer();
+            initTheme();
+            
+            // Always set Markdown mode active for display
+            answerText.classList.add('markdown');
+        });
+
+        // Initialize theme
+        function initTheme() {
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            setTheme(savedTheme);
+            
+            themeToggle.addEventListener('click', () => {
+                const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+                const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+                setTheme(newTheme);
+            });
+        }
+
+        function setTheme(theme) {
+            document.documentElement.setAttribute('data-theme', theme);
+            localStorage.setItem('theme', theme);
+            
+            if (theme === 'dark') {
+                themeIcon.textContent = '☀️';
+                themeText.textContent = 'Light Mode';
+            } else {
+                themeIcon.textContent = '🌙';
+                themeText.textContent = 'Dark Mode';
+            }
+        }
+
+        // Initialize WebSocket
+        function initSocketIO() {
+            socket = io();
+            
+            socket.on('connect', () => {
+                console.log('Connected to server');
+                showStatus('Connected to TTS server ✓', 'success');
+            });
+
+            socket.on('connected', (data) => {
+                console.log('Server confirmed:', data.message);
+            });
+
+            socket.on('tts_started', (data) => {
+                console.log('TTS started:', data.message);
+                isTTSGenerating = true;
+                updateTTSButton('generating');
+                audioVisualizer.classList.add('show');
+            });
+
+            socket.on('tts_audio_chunk', async (data) => {
+                console.log(`Received chunk ${data.chunk_index}`);
+                await handleAudioChunk(data);
+            });
+
+            socket.on('tts_complete', (data) => {
+                console.log('TTS complete:', data.total_chunks, 'chunks');
+                isTTSGenerating = false;
+                if (!isPlaying) {
+                    updateTTSButton('idle');
+                }
+            });
+
+            socket.on('tts_error', (data) => {
+                console.error('TTS error:', data.error);
+                showStatus('TTS Error: ' + data.error, 'error');
+                isTTSGenerating = false;
+                isPlaying = false;
+                updateTTSButton('idle');
+                stopVisualizer();
+            });
+
+            socket.on('disconnect', () => {
+                console.log('Disconnected from server');
+                showStatus('Disconnected from server', 'error');
+            });
+        }
+
+        // Initialize Audio Context
+        function initAudioContext() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+            return audioContext;
+        }
+
+        // Handle incoming audio chunk
+        async function handleAudioChunk(data) {
+            try {
+                const ctx = initAudioContext();
+                
+                const binaryString = atob(data.audio_data);
+                const bytes = new Uint8Array(binaryString.length);
+                for (let i = 0; i < binaryString.length; i++) {
+                    bytes[i] = binaryString.charCodeAt(i);
+                }
+
+                const audioBuffer = await ctx.decodeAudioData(bytes.buffer);
+                
+                audioQueue.push(audioBuffer);
+                
+                if (!isPlaying && audioQueue.length > 0) {
+                    playNextChunk();
+                }
+                
+            } catch (error) {
+                console.error('Error handling audio chunk:', error);
+                showStatus('Error processing audio chunk', 'error');
+            }
+        }
+
+        // Play next audio chunk
+        function playNextChunk() {
+            if (audioQueue.length === 0) {
+                if (!isTTSGenerating) {
+                    isPlaying = false;
+                    updateTTSButton('idle');
+                    stopVisualizer();
+                }
+                return;
+            }
+
+            isPlaying = true;
+            updateTTSButton('playing');
+            startVisualizer();
+
+            const audioBuffer = audioQueue.shift();
+            const source = audioContext.createBufferSource();
+            source.buffer = audioBuffer;
+            source.connect(audioContext.destination);
+            
+            currentSource = source;
+            
+            source.onended = () => {
+                playNextChunk();
+            };
+
+            source.start(0);
+        }
+
+        // Toggle TTS
+        function toggleTTS() {
+            if (isPlaying) {
+                stopTTS();
+            } else if (isTTSGenerating) {
+                showStatus('Please wait for generation to complete', 'error');
+            } else {
+                startTTS();
+            }
+        }
+
+        // Start TTS
+        function startTTS() {
+            const text = currentAnswer;
+            const language = ttsLanguageSelect.value;
+
+            if (!text) {
+                showStatus('No text to read', 'error');
+                return;
+            }
+
+            if (!socket || !socket.connected) {
+                showStatus('Not connected to server. Please refresh the page.', 'error');
+                return;
+            }
+
+            audioQueue = [];
+            
+            socket.emit('start_tts', {
+                text: text,
+                language: language
+            });
+
+            showStatus(`Generating speech in ${language}...`, 'success');
+        }
+
+        // Stop TTS
+        function stopTTS() {
+            if (currentSource) {
+                try {
+                    currentSource.stop();
+                } catch (e) {
+                    console.log('Source already stopped');
+                }
+                currentSource = null;
+            }
+            audioQueue = [];
+            isPlaying = false;
+            isTTSGenerating = false;
+            updateTTSButton('idle');
+            stopVisualizer();
+        }
+
+        // Update TTS button state
+        function updateTTSButton(state) {
+            const icon = ttsBtn.querySelector('.tts-icon');
+            const text = ttsBtn.querySelector('.tts-text');
+            
+            ttsBtn.className = 'tts-btn';
+            
+            if (state === 'playing') {
+                ttsBtn.classList.add('playing');
+                icon.textContent = '⏸️';
+                text.textContent = 'Stop';
+                ttsBtn.disabled = false;
+            } else if (state === 'generating') {
+                ttsBtn.classList.add('generating');
+                icon.textContent = '⏳';
+                text.textContent = 'Generating...';
+                ttsBtn.disabled = false;
+            } else {
+                icon.textContent = '🔊';
+                text.textContent = 'Read Aloud';
+                ttsBtn.disabled = !currentAnswer;
+            }
+        }
+
+        // Initialize visualizer
+        function initVisualizer() {
+            const container = document.getElementById('visualizerBars');
+            for (let i = 0; i < 20; i++) {
+                const bar = document.createElement('div');
+                bar.className = 'visualizer-bar';
+                container.appendChild(bar);
+            }
+        }
+
+        // Start visualizer animation
+        function startVisualizer() {
+            const bars = document.querySelectorAll('.visualizer-bar');
+            
+            function animate() {
+                if (!isPlaying) return;
+                
+                bars.forEach(bar => {
+                    const height = Math.random() * 100;
+                    bar.style.height = `${height}%`;
+                });
+                
+                animationFrameId = requestAnimationFrame(animate);
+            }
+            
+            animate();
+        }
+
+        // Stop visualizer
+        function stopVisualizer() {
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+                animationFrameId = null;
+            }
+            const bars = document.querySelectorAll('.visualizer-bar');
+            bars.forEach(bar => {
+                bar.style.height = '5px';
+            });
+        }
+
+        async function loadModels() {
+            try {
+                const response = await fetch('/models');
+                const data = await response.json();
+                availableModels = data.models;
+                selectedModelId = data.current_model;
+                updateModelDisplay();
+                renderModelButtons();
+            } catch (error) {
+                console.error('Error loading models:', error);
+            }
+        }
+
+        function renderModelButtons() {
+            const container = document.getElementById('modelButtons');
+            container.innerHTML = '';
+            
+            Object.entries(availableModels).forEach(([id, name]) => {
+                const btn = document.createElement('div');
+                btn.className = 'model-btn' + (id === selectedModelId ? ' active' : '');
+                btn.innerHTML = `
+                    <div style="font-weight: 600; margin-bottom: 5px;">${name}</div>
+                    <div style="font-size: 0.8em; opacity: 0.7; font-family: monospace;">${id}</div>
+                `;
+                btn.onclick = () => selectModel(id);
+                container.appendChild(btn);
+            });
+        }
+
+        function selectModel(modelId) {
+            selectedModelId = modelId;
+            updateModelDisplay();
+            renderModelButtons();
+            showStatus(`Model set to: ${availableModels[modelId]}`, 'success');
+        }
+
+        function updateModelDisplay() {
+            document.getElementById('currentModelBadge').textContent = selectedModelId;
+            document.getElementById('answerModelBadge').textContent = availableModels[selectedModelId];
+        }
+
+        function setMode(mode) {
+            currentMode = mode;
+            document.querySelectorAll('.mode-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.mode === mode);
+            });
+            showStatus(`Switched to ${mode} mode`, 'success');
+        }
+
+        function setupEventListeners() {
+            fileInput.addEventListener('change', handleFileSelect);
+            
+            loadUrlBtn.addEventListener('click', handleUrlLoad);
+            
+            urlInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter' && !loadUrlBtn.disabled) {
+                    handleUrlLoad();
+                }
+            });
+            
+            uploadSection.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadSection.style.transform = 'scale(1.02)';
+            });
+            
+            uploadSection.addEventListener('dragleave', () => {
+                uploadSection.style.transform = 'scale(1)';
+            });
+            
+            uploadSection.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadSection.style.transform = 'scale(1)';
+                if (e.dataTransfer.files.length > 0) {
+                    fileInput.files = e.dataTransfer.files;
+                    handleFileSelect();
+                }
+            });
+
+            questionInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter' && !askBtn.disabled) {
+                    askQuestion();
+                }
+            });
+
+            askBtn.addEventListener('click', askQuestion);
+            translateBtn.addEventListener('click', translateAnswer);
+            ttsBtn.addEventListener('click', toggleTTS);
+            copyBtn.addEventListener('click', copyAnswerToClipboard);
+            
+            showExtractBtn.addEventListener('click', showExtractedText);
+            copyExtractBtn.addEventListener('click', copyExtractedText);
+            closeExtractBtn.addEventListener('click', () => {
+                extractedTextSection.classList.remove('active');
+            });
+
+            languageSelect.addEventListener('change', () => {
+                translateBtn.disabled = languageSelect.value === 'none' || !currentAnswer;
+            });
+        }
+
+        async function handleFileSelect() {
+            const file = fileInput.files[0];
+            if (!file) return;
+
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('model', selectedModelId);
+
+            loader.classList.add('show');
+            status.style.display = 'none';
+            showExtractBtn.disabled = true;
+
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    document.getElementById('filenameDisplay').textContent = `✓ Loaded: ${file.name}`;
+                    uploadSection.style.display = 'none';
+                    qaSection.classList.add('active');
+                    showExtractBtn.disabled = false;
+                    
+                    // Fetch extracted text
+                    await fetchExtractedText();
+                    
+                    showStatus(data.message, 'success');
+                } else {
+                    showStatus(data.error || 'Failed to upload document', 'error');
+                }
+            } catch (error) {
+                showStatus('Error: ' + error.message, 'error');
+            } finally {
+                loader.classList.remove('show');
+            }
+        }
+
+        async function handleUrlLoad() {
+            const url = urlInput.value.trim();
+            if (!url) {
+                showStatus('Please enter a valid URL', 'error');
+                return;
+            }
+            
+            try {
+                const urlObj = new URL(url);
+                if (!urlObj.protocol.startsWith('http')) {
+                    showStatus('Please enter a valid HTTP/HTTPS URL', 'error');
+                    return;
+                }
+            } catch (e) {
+                showStatus('Please enter a valid URL', 'error');
+                return;
+            }
+
+            loader.classList.add('show');
+            loadUrlBtn.disabled = true;
+            status.style.display = 'none';
+            showExtractBtn.disabled = true;
+
+            try {
+                const response = await fetch('/upload_url', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        url: url,
+                        model: selectedModelId
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    document.getElementById('filenameDisplay').textContent = `✓ Loaded from URL: ${new URL(url).hostname}`;
+                    uploadSection.style.display = 'none';
+                    qaSection.classList.add('active');
+                    urlInput.value = '';
+                    showExtractBtn.disabled = false;
+                    
+                    // Fetch extracted text
+                    await fetchExtractedText();
+                    
+                    showStatus(data.message, 'success');
+                } else {
+                    showStatus(data.error || 'Failed to load document from URL', 'error');
+                }
+            } catch (error) {
+                showStatus('Error: ' + error.message, 'error');
+            } finally {
+                loader.classList.remove('show');
+                loadUrlBtn.disabled = false;
+            }
+        }
+
+        async function fetchExtractedText() {
+            try {
+                const response = await fetch('/get_extracted_text');
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.extracted_text) {
+                        extractedText = data.extracted_text;
+                        // Update character count
+                        charCount.textContent = extractedText.length;
+                        // Show button
+                        showExtractBtn.disabled = false;
+                        showExtractBtn.innerHTML = '📋 View Extracted Text';
+                    }
+                }
+            } catch (error) {
+                console.error('Error fetching extracted text:', error);
+            }
+        }
+
+        function showExtractedText() {
+            if (!extractedText) {
+                showStatus('No extracted text available', 'error');
+                return;
+            }
+            
+            // Display the extracted text
+            extractedTextContent.textContent = extractedText;
+            extractedTextSection.classList.add('active');
+            
+            // Scroll to the extracted text section
+            extractedTextSection.scrollIntoView({ behavior: 'smooth' });
+            
+            showStatus('Extracted text loaded ✓', 'success');
+        }
+
+        async function copyExtractedText() {
+            if (!extractedText) {
+                showStatus('No text to copy', 'error');
+                return;
+            }
+            
+            try {
+                await navigator.clipboard.writeText(extractedText);
+                showStatus('Extracted text copied to clipboard!', 'success');
+                
+                copyExtractBtn.innerHTML = '✓ Copied!';
+                setTimeout(() => {
+                    copyExtractBtn.innerHTML = '📋 Copy Text';
+                }, 2000);
+                
+            } catch (error) {
+                showStatus('Failed to copy: ' + error.message, 'error');
+            }
+        }
+
+        async function askQuestion() {
+            const question = questionInput.value.trim();
+            if (!question) return;
+
+            if (currentMode === 'stream') {
+                await askQuestionStream(question);
+            } else {
+                await askQuestionStandard(question);
+            }
+        }
+
+        async function askQuestionStandard(question) {
+            askBtn.disabled = true;
+            loader.classList.add('show');
+            answerBox.classList.remove('show');
+            translateBtn.disabled = true;
+            ttsBtn.disabled = true;
+            languageSelect.value = 'none';
+            audioVisualizer.classList.remove('show');
+
+            try {
+                const response = await fetch('/ask', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ question })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    currentAnswer = data.answer;
+                    displayAnswer(data.answer, data.sources, data.model_used);
+                    questionInput.value = '';
+                    translateBtn.disabled = false;
+                    ttsBtn.disabled = false;
+                } else {
+                    showStatus(data.error || 'Failed to get answer', 'error');
+                }
+            } catch (error) {
+                showStatus('Error: ' + error.message, 'error');
+            } finally {
+                askBtn.disabled = false;
+                loader.classList.remove('show');
+            }
+        }
+
+        async function askQuestionStream(question) {
+            askBtn.disabled = true;
+            answerBox.classList.add('show');
+            answerText.textContent = '';
+            streamingIndicator.style.display = 'inline-block';
+            document.getElementById('sourcesSection').style.display = 'none';
+            translateBtn.disabled = true;
+            ttsBtn.disabled = true;
+            languageSelect.value = 'none';
+            audioVisualizer.classList.remove('show');
+            currentAnswer = '';
+
+            try {
+                const response = await fetch('/ask_stream', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ question })
+                });
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let fullAnswer = '';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    const chunk = decoder.decode(value);
+                    const lines = chunk.split('\n');
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const data = JSON.parse(line.slice(6));
+                            
+                            if (data.type === 'token') {
+                                fullAnswer += data.token;
+                                currentAnswer = fullAnswer;
+                                displayAnswer(fullAnswer, null, null, true);
+                            } else if (data.type === 'sources') {
+                                streamingIndicator.style.display = 'none';
+                                displayAnswer(fullAnswer, data.sources, data.model_used, false);
+                                translateBtn.disabled = false;
+                                ttsBtn.disabled = false;
+                            } else if (data.type === 'error') {
+                                showStatus(data.error, 'error');
+                            }
+                        }
+                    }
+                }
+
+                questionInput.value = '';
+            } catch (error) {
+                showStatus('Error: ' + error.message, 'error');
+                streamingIndicator.style.display = 'none';
+            } finally {
+                askBtn.disabled = false;
+            }
+        }
+
+        async function translateAnswer() {
+            const selectedLanguage = languageSelect.value;
+            if (selectedLanguage === 'none' || !currentAnswer) {
+                return;
+            }
+
+            translateBtn.disabled = true;
+            loader.classList.add('show');
+
+            try {
+                const response = await fetch('/translate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        text: currentAnswer,
+                        language: selectedLanguage
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    const translatedText = data.translated_text;
+                    currentAnswer = translatedText;
+                    
+                    // Always display in markdown format
+                    answerText.innerHTML = marked.parse(translatedText);
+                    answerText.classList.add('markdown');
+                    
+                    showStatus(`Translated successfully!`, 'success');
+                } else {
+                    showStatus(data.error || 'Translation failed', 'error');
+                }
+            } catch (error) {
+                showStatus('Error: ' + error.message, 'error');
+            } finally {
+                translateBtn.disabled = false;
+                loader.classList.remove('show');
+            }
+        }
+
+        async function copyAnswerToClipboard() {
+            try {
+                let textToCopy = '';
+                
+                // Always extract text from markdown HTML
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = answerText.innerHTML;
+                textToCopy = tempDiv.textContent || tempDiv.innerText || '';
+                
+                await navigator.clipboard.writeText(textToCopy);
+                showStatus('Answer copied to clipboard!', 'success');
+                
+                copyBtn.textContent = '✓ Copied!';
+                setTimeout(() => {
+                    copyBtn.textContent = '📋 Copy';
+                }, 2000);
+                
+            } catch (error) {
+                showStatus('Failed to copy: ' + error.message, 'error');
+            }
+        }
+
+        function displayAnswer(answer, sources, modelUsed, isStreaming = false) {
+            // Always display in markdown format
+            if (isStreaming) {
+                answerText.innerHTML = marked.parse(answer);
+            } else {
+                answerText.innerHTML = marked.parse(answer);
+            }
+            
+            answerText.classList.add('markdown');
+
+            if (modelUsed) {
+                document.getElementById('answerModelBadge').textContent = availableModels[modelUsed] || modelUsed;
+            }
+
+            if (sources && sources.length > 0) {
+                const sourcesList = document.getElementById('sourcesList');
+                sourcesList.innerHTML = sources.map(src => 
+                    `<div class="source-item">${src}</div>`
+                ).join('');
+                document.getElementById('sourcesSection').style.display = 'block';
+            }
+
+            answerBox.classList.add('show');
+            ttsBtn.disabled = false;
+        }
+
+        function showStatus(message, type) {
+            status.textContent = message;
+            status.className = `status ${type}`;
+            status.style.display = 'block';
+            setTimeout(() => {
+                status.style.display = 'none';
+            }, 5000);
+        }
+    </script>
+</body>
+</html>
